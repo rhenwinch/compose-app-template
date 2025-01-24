@@ -38,7 +38,7 @@ jobs:
           distribution: adopt
 
       - name: Assemble release APK
-        uses: gradle/gradle-command-action@v2
+        uses: gradle/gradle-command-action@v3
         with:
           arguments: :app:assembleRelease
 
