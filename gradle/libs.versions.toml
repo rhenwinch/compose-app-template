@@ -1,7 +1,7 @@
 [versions]
 agp = "8.8.0"
 androidxCompose = "1.9.3"
-androidxTest = "1.6.1"
+androidxTest = "1.6.2"
 androidxTestExt = "1.2.1"
 appcompat = "1.7.0"
 compose = "1.7.6"
