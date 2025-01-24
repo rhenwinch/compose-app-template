@@ -12,7 +12,7 @@ jobs:
   template-cleanup:
     name: Template Cleanup
     runs-on: ubuntu-latest
-    if: github.event.repository.name != 'kotlin-android-template'
+    if: github.event.repository.name != 'compose-app-template'
     steps:
 
       # Check out current repository

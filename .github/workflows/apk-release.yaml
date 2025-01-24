@@ -1,0 +1,132 @@
+name: APK Release CI
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'    # Stable release tags (e.g., 1.2.3)
+      - 'PRE-[a-f0-9]{7}'         # Pre-release tags with 7-char commit SHA (e.g., PRE-abc1234)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.prepare_artifact.outputs.release_sha }}
+      short_sha: ${{ steps.prepare_artifact.outputs.short_sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/wrapper-validation-action@v1
+
+      - name: Setup Android SDK
+        run: ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: adopt
+
+      - name: Assemble release APK
+        uses: gradle/gradle-command-action@v2
+        with:
+          arguments: :app:assembleRelease
+
+      - name: Sign release APK
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Prepare release artifact
+        id: prepare_artifact
+        run: |
+          mv app/build/outputs/apk/release/app-release-unsigned-signed.apk app-release.apk
+          echo "release_sha=$(sha256sum app-release.apk | cut -d ' ' -f1)" >> $GITHUB_OUTPUT
+          echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-apk
+          path: app-release.apk
+
+  release:
+    name: Create Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: release-apk
+
+      - name: Get previous tag
+        id: previousTag
+        run: |
+          name=$(git --no-pager tag --sort=creatordate --merged ${{ github.ref_name }} | tail -2 | head -1)
+          echo "previousTag: $name"
+          echo "previousTag=$name" >> $GITHUB_ENV
+
+      - name: Generate changelogs
+        id: changelog
+        uses: requarks/changelog-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fromTag: ${{ github.ref_name }}
+          toTag: ${{ env.previousTag || 'HEAD' }}
+          excludeTypes: ${{ !startsWith(github.ref, 'refs/tags/PRE-') && 'build,docs,other,style' || '' }}
+          writeToFile: false
+
+      - name: Manage pre-release
+        if: startsWith(github.ref, 'refs/tags/PRE-')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Attempting to delete pre-release tag..."
+          
+          git tag -d pre-release || echo "Local tag 'pre-release' does not exist."
+          git push origin :refs/tags/pre-release || echo "Remote tag 'pre-release' does not exist."
+          
+          CLEANED_CHANGES=$(echo '${{ steps.changelog.outputs.changes }}' | sed 's/`/`/g')
+          
+          echo "Creating new pre-release..."
+          gh release delete pre-release --yes || echo "Failed to delete last pre-release."
+          gh release create pre-release \
+            --title "${{ github.ref_name }}" \
+            --notes "${{ CLEANED_CHANGES }}" \
+            --prerelease \
+            app-release.apk
+
+      - name: Manage stable release
+        if: "!startsWith(github.ref, 'refs/tags/PRE-')"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete ${{ github.ref_name }} --yes || echo "Failed to delete ${{ github.ref_name }} release."
+          
+          CLEANED_CHANGES=$(echo '${{ steps.changelog.outputs.changes }}' | sed 's/`/`/g')
+          
+          gh release create ${{ github.ref_name }} \
+            --title "${{ github.ref_name }}" \
+            --notes "${{ CLEANED_CHANGES }}" \
+            app-release.apk

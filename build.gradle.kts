@@ -1,40 +1,39 @@
 import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
+import java.util.Locale
 
 plugins {
-    id("com.android.application") apply false
-    id("com.android.library") apply false
-    kotlin("android") apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.library) apply false
     alias(libs.plugins.compose.compiler) apply false
-    alias(libs.plugins.detekt)
+    alias(libs.plugins.hilt) apply false
+    alias(libs.plugins.kotlin.android) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.ksp) apply false
     alias(libs.plugins.versions)
-    cleanup
-    base
 }
 
-allprojects {
-    group = PUBLISHING_GROUP
+tasks.withType<DependencyUpdatesTask> {
+    rejectVersionIf {
+        candidate.version.isNonStable() && !currentVersion.isNonStable()
+    }
+
+    checkForGradleUpdate = true
+    outputFormatter = "text"
+    outputDir =
+        project.rootProject.layout.buildDirectory.asFile
+            .get()
+            .resolve("reports/dependency-updates")
+            .absolutePath
+    reportfileName = "report"
 }
 
-val detektFormatting = libs.detekt.formatting
-
-subprojects {
-    apply {
-        plugin("io.gitlab.arturbosch.detekt")
-    }
-
-    detekt {
-        config.from(rootProject.files("config/detekt/detekt.yml"))
-    }
-
-    dependencies {
-        detektPlugins(detektFormatting)
-    }
+private fun String.isNonStable(): Boolean {
+    val stableKeyword = listOf("RELEASE", "FINAL", "GA").any { uppercase(Locale.US).contains(it) }
+    val regex = "^[0-9,.v-]+(-r)?$".toRegex()
+    val isStable = stableKeyword || regex.matches(this)
+    return isStable.not()
 }
 
-tasks {
-    withType<DependencyUpdatesTask>().configureEach {
-        rejectVersionIf {
-            candidate.version.isStableVersion().not()
-        }
-    }
+if (File(rootDir, "build-logic/cleanup.gradle.kts").exists()) {
+    apply(from = "build-logic/cleanup.gradle.kts")
 }

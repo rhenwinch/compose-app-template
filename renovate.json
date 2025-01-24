@@ -1,6 +1,21 @@
 {
-  "extends": [
-    "config:base",
-    ":automergeMinor"
-  ]
+    "extends": [
+        "config:base",
+        ":automergeMinor"
+    ],
+    "packageRules": [
+        {
+            "matchPackagePatterns": [
+                "convention\\.android\\.application",
+                "convention\\.compose",
+                "convention\\.data",
+                "convention\\.feature",
+                "convention\\.hilt",
+                "convention\\.android\\.library",
+                "convention\\.testing",
+                "convention\\.detekt"
+            ],
+            "enabled": false
+        }
+    ]
 }
