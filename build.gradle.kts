@@ -34,6 +34,5 @@ private fun String.isNonStable(): Boolean {
     return isStable.not()
 }
 
-if (File(rootDir, "build-logic/cleanup.gradle.kts").exists()) {
-    apply(from = "build-logic/cleanup.gradle.kts")
-}
+val cleanupScript = "build-logic/src/main/kotlin/tool/cleanup.gradle.kts"
+if (File(rootDir, cleanupScript).exists()) apply(cleanupScript)
