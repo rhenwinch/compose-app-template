@@ -21,7 +21,7 @@ lifecycle = "2.10.0"
 material = "1.13.0"
 mockk = "1.14.9"
 versions = "0.53.0"
-googleFonts = "1.10.3"
+googleFonts = "1.10.4"
 
 
 [libraries]
