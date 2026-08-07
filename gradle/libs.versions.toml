@@ -20,7 +20,7 @@ ksp = "2.3.11"
 lifecycle = "2.11.0"
 material = "1.14.0"
 mockk = "1.14.11"
-versions = "0.59.0"
+versions = "0.60.0"
 googleFonts = "1.11.4"
 
 
