@@ -22,7 +22,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: 17.0.21+9
+          java-version: 25.0.5+8.0.LTS
           distribution: adopt
 
       - name: Setup Gradle
